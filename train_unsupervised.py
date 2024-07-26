@@ -85,7 +85,7 @@ def get_model(args):
         d_dim = args.d_dim, 
         num_heads = args.num_heads, 
         num_layers = args.num_layers, 
-        ff_hidden_dim = args.d_dim, 
+        ff_hidden_dim = args.dim_ffw, 
         dropout = args.dropout, 
         out_dim = args.out_dim, 
         mode="unsupervised"
@@ -107,7 +107,7 @@ def lr_lambda(iteration):
 
 def get_optimizer(args, model): 
 
-    optimizer = torch.optim.Adam(model.parameters(), lr=args.lr)
+    optimizer = torch.optim.AdamW(model.parameters(), lr=args.lr)
     scheduler = torch.optim.lr_scheduler.LambdaLR(optimizer, lr_lambda)    
     return optimizer, scheduler 
 
