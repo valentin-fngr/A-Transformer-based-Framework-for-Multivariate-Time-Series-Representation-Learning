@@ -1,0 +1,27 @@
+# training 
+
+epochs: 1000
+csv_file: "/home/valentin/Desktop/interview_memento_ai/DS-RNN/DS-RNN/nasdaq100_padding.csv"
+target: "NDX"
+batch_size: 128
+
+
+timesteps: 15
+d_dim: 64
+dim_ffw: 256
+num_layers: 3
+num_heads: 8
+num_exogenous: 81
+dropout: 0.2
+
+lr: 0.0001
+train_split: 0.75
+val_split: 0.15
+
+# reconstruction
+out_dim: 81
+
+
+# mask
+mask_r: 0.15
+lm: 3

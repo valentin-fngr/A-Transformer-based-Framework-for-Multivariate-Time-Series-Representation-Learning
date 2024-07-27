@@ -7,7 +7,7 @@ import copy
 from tqdm import tqdm 
 
 from lib.models.models import TFMTSRL 
-from lib.data.data import get_data_and_preprocess, DatasetUnsupervised
+from lib.data.data import get_data_and_preprocess, get_data_and_preprocess_unsupervised, DatasetUnsupervised
 from lib.utils.learning import AverageMeter
 from lib.utils.utils import get_config
 
@@ -49,8 +49,8 @@ def save_checkpoint(chk_path, epoch, lr, optimizer, scheduler, model, min_loss):
 
 def get_dataloader(args): 
      
-    data = get_data_and_preprocess(args.csv_file, args.target, args.timesteps, args.train_split, args.val_split) 
-    X_train_t, X_val_t, X_test_t, y_his_train_t, y_his_val_t, y_his_test_t, target_train_t, target_val_t, target_test_t,  = data
+    data = get_data_and_preprocess_unsupervised(args.csv_file, args.target, args.timesteps, args.train_split, args.val_split) 
+    X_train_t, X_val_t, X_test_t, y_his_train_t, y_his_val_t, y_his_test_t  = data
     train_loader = DataLoader(
         DatasetUnsupervised(
             X = X_train_t, 
@@ -125,7 +125,10 @@ def train_epoch(args, opts, model, train_loader, criterion, optimizer, scheduler
         mask_idx = mask_idx.to(device) # (bs, w, m)
 
         preds = model(masked_input)  # (bs, w, m)        
-        loss = criterion(target * mask_idx, preds)
+        # masked_target = target[mask_idx]  
+        # masked_preds = preds[mask_idx]  
+        loss = criterion(preds, target)
+
         losses["train_MSE_loss"].update(loss.item(), preds.shape[0])
         loss.backward()
         optimizer.step()    
@@ -150,8 +153,9 @@ def validate_epoch(
             masked_input = masked_input.to(device) # (bs, w, m)
             target = target.to(device)  # (bs, w, m)
             mask_idx = mask_idx.to(device) # (bs, w, m)
-            preds = model(masked_input)  # (bs, w, m)        
-            loss = criterion(target * mask_idx, preds)
+            preds = model(masked_input)  # (bs, w, m)       
+
+            loss = criterion(preds, target)
             losses["val_MSE_loss"].update(loss.item(), preds.shape[0]) 
 
     return model

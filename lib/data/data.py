@@ -41,11 +41,11 @@ def get_data_and_preprocess(
     y_his_train = y[:train_length] # (num_sample, T, 1)
     X_val = X[train_length:train_length+val_length]
     y_his_val = y[train_length:train_length+val_length]
-    X_test = X[-val_length:]
-    y_his_test = y[-val_length:]
+    X_test = X[train_length + val_length:]
+    y_his_test = y[train_length + val_length:]
     target_train = target[:train_length]
     target_val = target[train_length:train_length+val_length]
-    target_test = target[-val_length:]
+    target_test = target[train_length + val_length:]
 
     # min max scaling 
     X_train_mean= X_train.mean(axis=(0, 1))[None, None, :] # (1, 1, n)
@@ -90,6 +90,82 @@ def get_data_and_preprocess(
     ]
 
 
+def get_data_and_preprocess_unsupervised(
+        csv_path, 
+        target, 
+        timesteps, 
+        train_split, 
+        val_split
+): 
+    data = pd.read_csv(csv_path)
+    data.shape[1] - 1
+
+    # placeholders
+    X = np.zeros((len(data), timesteps, data.shape[1]-1))
+    y = np.zeros((len(data), timesteps, 1))
+
+    # fill X : 
+    # for each time serie
+    for i, name in enumerate(list(data.columns[:-1])):
+        # for each timestep
+        for j in range(timesteps):
+            X[:, j, i] = data[name].shift(timesteps - j - 1).fillna(method="bfill")
+
+    
+    for j in range(timesteps):
+       y[:, j, 0] = data[target].shift(timesteps - j - 1).fillna(method="bfill")
+
+    
+    train_length = int(len(data) * train_split)
+    val_length = int(len(data) * val_split)
+
+    # "To select hyperparameters, for each dataset we randomly
+    # split the training set in two parts, 80%-20%, and used the 20% as
+    # a validation set for hyperparameter tuning"
+
+    shuffle_idx  = torch.randperm(train_length + val_length)
+    X_train_val = X[:train_length + val_length][shuffle_idx]
+    y_train_val = y[:train_length + val_length][shuffle_idx] 
+
+    X_train = X_train_val[:train_length] # (num_sample, T, n)
+    y_his_train = y_train_val[:train_length] # (num_sample, T, 1)
+    X_val = X_train_val[train_length:train_length+val_length]
+    y_his_val = y_train_val[train_length:train_length+val_length]
+    X_test = X[train_length+val_length:]
+    y_his_test = y[train_length+val_length:]
+
+    # min max scaling 
+    X_train_mean= X_train.mean(axis=(0, 1))[None, None, :] # (1, 1, n)
+    X_train_std = X_train.std(axis=(0, 1))[None, None, :] # (1, 1, n)
+    y_his_train_mean = y_his_train.mean(axis=(0, 1))[None, :] # (T, 1)
+    y_his_train_std = y_his_train.std(axis=(0, 1))[None, :] # (T, 1)
+
+    X_train = (X_train - X_train_mean) / X_train_std
+    X_val = (X_val - X_train_mean) / X_train_std
+    X_test = (X_test - X_train_mean) / X_train_std
+
+    y_his_train = (y_his_train - y_his_train_mean) / y_his_train_std
+    y_his_val = (y_his_val - y_his_train_mean) / y_his_train_std
+    y_his_test = (y_his_test - y_his_train_mean) / y_his_train_std
+
+    X_train_t = X_train
+    X_val_t = X_val
+    X_test_t = X_test
+    y_his_train_t = y_his_train
+    y_his_val_t = y_his_val
+    y_his_test_t = y_his_test
+
+    return [
+        X_train_t,
+        X_val_t,
+        X_test_t,
+        y_his_train_t,
+        y_his_val_t,
+        y_his_test_t
+    ]
+
+
+
 
 
 class DatasetUnsupervised(Dataset): 
@@ -119,6 +195,8 @@ class DatasetUnsupervised(Dataset):
         self.prob_unmask_stop = (self.prob_mask_stop * mask_r) / (1 - mask_r)
         self.mask_r = mask_r
         self.timesteps = timesteps
+
+        print(X.shape)
 
         if y_known: 
             self.X = np.concat([self.X, y_known], dim=2) # (num_samples, w, m + 1)
@@ -154,8 +232,8 @@ class DatasetUnsupervised(Dataset):
         return mask
     
     def __len__(self): 
-        return 1000
-        # return len(self.X)
+        # return 3000
+        return len(self.X)
 
 # X = np.random.rand(1, 30, 10) 
 # target = np.random.rand(1,)
