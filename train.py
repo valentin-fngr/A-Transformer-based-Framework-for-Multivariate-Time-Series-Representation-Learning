@@ -81,7 +81,7 @@ def get_criterion(args):
 
 
 def lr_lambda(iteration):
-    return 0.9 ** (iteration // 10000)
+    return 0.9 ** (iteration // 25)
 
 
 def get_optimizer(args, model): 
@@ -210,6 +210,9 @@ def train_with_config(args, opts):
         train_epoch(args, opts, model, train_loader, criterion, optimizer, scheduler, losses, epoch) 
         model, gt, pred = validate_epoch(args, opts, model, val_loader, criterion, losses, epoch)
         
+        scheduler.step()
+
+
         # logs
         lr = optimizer.param_groups[0]['lr']
         train_writer.add_scalar("train_MSE_loss", losses["train_MSE_loss"].avg, epoch + 1)

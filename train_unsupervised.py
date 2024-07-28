@@ -197,6 +197,8 @@ def train_with_config(args, opts):
         train_epoch(args, opts, model, train_loader, criterion, optimizer, scheduler, losses, epoch) 
         model = validate_epoch(args, opts, model, val_loader, criterion, losses, epoch)
         
+        scheduler.step()
+
         # logs
         lr = optimizer.param_groups[0]['lr']
         train_writer.add_scalar("train_MSE_loss", losses["train_MSE_loss"].avg, epoch + 1)
@@ -207,6 +209,7 @@ def train_with_config(args, opts):
 
         if early_stopper.early_stop(losses["val_MSE_loss"].avg):             
             break
+        
         
         save_checkpoint(chk_path_latest, epoch, lr, optimizer, scheduler, model, min_loss)
         if losses["val_MSE_loss"].avg < min_loss: 
