@@ -67,15 +67,15 @@ def get_data_and_preprocess(
     target_val = (target_val - target_train_mean) / target_train_std
     target_test = (target_test - target_train_mean) / target_train_std
 
-    X_train_t = X_train
-    X_val_t = X_val
-    X_test_t = X_test
-    y_his_train_t = y_his_train
-    y_his_val_t = y_his_val
-    y_his_test_t = y_his_test
-    target_train_t = target_train
-    target_val_t = target_val
-    target_test_t = target_test
+    X_train_t = torch.Tensor(X_train)
+    X_val_t = torch.Tensor(X_val)
+    X_test_t = torch.Tensor(X_test)
+    y_his_train_t = torch.Tensor(y_his_train)
+    y_his_val_t = torch.Tensor(y_his_val)
+    y_his_test_t = torch.Tensor(y_his_test)
+    target_train_t = torch.Tensor(target_train)
+    target_val_t = torch.Tensor(target_val)
+    target_test_t = torch.Tensor(target_test)
 
     return [
         X_train_t,
@@ -163,9 +163,6 @@ def get_data_and_preprocess_unsupervised(
         y_his_val_t,
         y_his_test_t
     ]
-
-
-
 
 
 class DatasetUnsupervised(Dataset): 

@@ -8,15 +8,13 @@ from tqdm import tqdm
 
 from lib.models.models import TFMTSRL 
 from lib.data.data import get_data_and_preprocess, get_data_and_preprocess_unsupervised, DatasetUnsupervised
-from lib.utils.learning import AverageMeter
+from lib.utils.learning import AverageMeter, EarlyStopper
 from lib.utils.utils import get_config
 
 import numpy as np 
 import torch 
 from torch.utils.tensorboard import SummaryWriter
 from torch.utils.data import DataLoader, TensorDataset
-
-
 
 
 device = torch.device("cuda")
@@ -125,9 +123,9 @@ def train_epoch(args, opts, model, train_loader, criterion, optimizer, scheduler
         mask_idx = mask_idx.to(device) # (bs, w, m)
 
         preds = model(masked_input)  # (bs, w, m)        
-        # masked_target = target[mask_idx]  
-        # masked_preds = preds[mask_idx]  
-        loss = criterion(preds, target)
+        masked_target = target[mask_idx]  
+        masked_preds = preds[mask_idx]  
+        loss = criterion(masked_preds, masked_target)
 
         losses["train_MSE_loss"].update(loss.item(), preds.shape[0])
         loss.backward()
@@ -160,9 +158,13 @@ def validate_epoch(
 
     return model
 
-
-
 def train_with_config(args, opts): 
+
+    experiment_path = os.path.join("./experiments")
+    if not os.path.exists(experiment_path): 
+        os.mkdir(experiment_path)
+
+    opts.checkpoint = os.path.join(experiment_path, opts.checkpoint)
 
     try: 
         os.mkdir(opts.checkpoint)
@@ -183,6 +185,8 @@ def train_with_config(args, opts):
         model_params = model_params + parameter.numel()
     print('INFO: Trainable parameter count:', model_params)
 
+    early_stopper = EarlyStopper(patience=16, min_delta=0.05)
+    
     for epoch in tqdm(range(args.epochs)): 
         print('Training epoch %d.' % epoch)
 
@@ -201,11 +205,13 @@ def train_with_config(args, opts):
         chk_path_latest = os.path.join(opts.checkpoint, 'latest_epoch.bin')
         chk_path_best = os.path.join(opts.checkpoint, 'best_epoch.bin'.format(epoch))
 
+        if early_stopper.early_stop(losses["val_MSE_loss"].avg):             
+            break
+        
         save_checkpoint(chk_path_latest, epoch, lr, optimizer, scheduler, model, min_loss)
         if losses["val_MSE_loss"].avg < min_loss: 
             min_loss = losses["val_MSE_loss"].avg
             save_checkpoint(chk_path_best, epoch, lr, optimizer, scheduler, model, min_loss)
-
 
 
 def set_random_seed(seed):

@@ -1,3 +1,4 @@
 checkpoint* 
 logs 
 *.pyc
+experiments

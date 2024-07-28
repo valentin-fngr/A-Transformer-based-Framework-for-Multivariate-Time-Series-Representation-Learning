@@ -6,27 +6,24 @@ import time
 import copy 
 from tqdm import tqdm 
 
-from lib.models.models import unsupervised 
+from lib.models.models import TFMTSRL 
 from lib.data.data import get_data_and_preprocess
-from lib.utils.learning import AverageMeter
-from lib.utils.utils import get_config
+from lib.utils.learning import AverageMeter, EarlyStopper
+from lib.utils.utils import get_config, mape
 
 import numpy as np 
 import torch 
 from torch.utils.tensorboard import SummaryWriter
 from torch.utils.data import DataLoader, TensorDataset
 
-
-
-
 device = torch.device("cuda")
-
 
 
 def parse_args():
     parser = argparse.ArgumentParser()
     parser.add_argument("--config", type=str, default="config/basic.yaml", help="Path to the config file.")
     parser.add_argument('--checkpoint', default='checkpoint', type=str, metavar='PATH', help='checkpoint directory')
+    parser.add_argument('--finetune', default='', type=str, metavar='PATH', help='checkpoint to fine tune from')
     parser.add_argument('--seed', default=0, type=int, help='random seed')
     opts = parser.parse_args()
     return opts
@@ -50,7 +47,10 @@ def save_checkpoint(chk_path, epoch, lr, optimizer, scheduler, model, min_loss):
 def get_dataloader(args): 
      
     data = get_data_and_preprocess(args.csv_file, args.target, args.timesteps, args.train_split, args.val_split) 
-    X_train_t, X_val_t, X_test_t, y_his_train_t, y_his_val_t, y_his_test_t, target_train_t, target_val_t, target_test_t,  = data
+    X_train_t, X_val_t, X_test_t, y_his_train_t, y_his_val_t, y_his_test_t, target_train_t, target_val_t, target_test_t  = data
+    print("TRAIN DATA SIZE : ", X_train_t.shape) 
+    print("VAL DATA SIZE : ", X_val_t.shape)
+    print("TEST DATA SIZE : ", X_test_t.shape) 
     train_loader = DataLoader(TensorDataset(X_train_t, y_his_train_t, target_train_t), shuffle=True, batch_size=args.batch_size)
     val_loader = DataLoader(TensorDataset(X_val_t, y_his_val_t, target_val_t), shuffle=False, batch_size=args.batch_size)
     test_loader = DataLoader(TensorDataset(X_test_t, y_his_test_t, target_test_t), shuffle=False, batch_size=args.batch_size)
@@ -58,13 +58,13 @@ def get_dataloader(args):
 
 
 def get_model(args): 
-    model = unsupervised(
+    model = TFMTSRL(
         w = args.timesteps, 
         m = args.num_exogenous, 
         d_dim = args.d_dim, 
         num_heads = args.num_heads, 
         num_layers = args.num_layers, 
-        ff_hidden_dim = args.d_dim, 
+        ff_hidden_dim = args.dim_ffw, 
         dropout = args.dropout, 
         out_dim = args.out_dim, 
         mode = "supervised"
@@ -112,7 +112,8 @@ def validate_epoch(
     val_loader, 
     criterion, 
     losses, 
-    epoch 
+    epoch, 
+    mode="val"
 ): 
     model.eval()
 
@@ -129,6 +130,14 @@ def validate_epoch(
             loss = criterion(target, preds)
             losses["val_MSE_loss"].update(loss.item(), preds.shape[0]) 
             
+            mae_loss = torch.nn.functional.l1_loss(target, preds)
+            mape_loss = mape(target, preds)
+
+            losses[f"{mode}_MSE_loss"].update(loss.item(), preds.shape[0]) 
+            losses[f"{mode}_MAE_loss"].update(mae_loss.item(), preds.shape[0])
+            losses[f"{mode}_RMSE_loss"].update(torch.sqrt(loss).item(), preds.shape[0])
+            losses[f"{mode}_MAPE_loss"].update(mape_loss.item(), preds.shape[0])
+
             gt.append(target.cpu().numpy())
             pred.append(preds.cpu().numpy())
 
@@ -141,6 +150,11 @@ def validate_epoch(
 
 def train_with_config(args, opts): 
 
+    experiment_path = os.path.join("./experiments")
+    if not os.path.exists(experiment_path): 
+        os.mkdir(experiment_path)
+
+    opts.checkpoint = os.path.join(experiment_path, opts.checkpoint)
     try: 
         os.mkdir(opts.checkpoint)
     except OSError as e: 
@@ -160,13 +174,39 @@ def train_with_config(args, opts):
         model_params = model_params + parameter.numel()
     print('INFO: Trainable parameter count:', model_params)
 
+    # load weights if fine tune mode 
+    if opts.finetune:
+        model_state = model.state_dict()
+        chk_filename = opts.finetune
+        if os.path.exists(chk_filename):
+            print('INFO : Loading checkpoint for finetuning ->', chk_filename)
+            checkpoint = torch.load(chk_filename)
+            state_dict = checkpoint["model"]
+            # load 
+            for name, param in state_dict.items():
+                print(f"Loading {name}")
+                print(param.shape, model_state[name].shape)
+                if name in model_state and not name.startswith("head."): 
+                    model_state[name].copy_(param)
+
+        model.load_state_dict(model_state, strict=False)
+        print('INFO : Loading checkpoint : DONE ->', chk_filename)
+
+    early_stopper = EarlyStopper(patience=16, min_delta=0.05)
+
     for epoch in tqdm(range(args.epochs)): 
         print('Training epoch %d.' % epoch)
 
         losses = {}
         losses["train_MSE_loss"] = AverageMeter()
         losses["val_MSE_loss"] = AverageMeter()
+        losses["val_MAE_loss"] = AverageMeter()
+        losses["val_RMSE_loss"] = AverageMeter()
+        losses["val_MAPE_loss"] = AverageMeter()
         losses["test_MSE_loss"] = AverageMeter()
+        losses["test_MAE_loss"] = AverageMeter()
+        losses["test_RMSE_loss"] = AverageMeter()
+        losses["test_MAPE_loss"] = AverageMeter()
         train_epoch(args, opts, model, train_loader, criterion, optimizer, scheduler, losses, epoch) 
         model, gt, pred = validate_epoch(args, opts, model, val_loader, criterion, losses, epoch)
         
@@ -188,11 +228,31 @@ def train_with_config(args, opts):
         chk_path_latest = os.path.join(opts.checkpoint, 'latest_epoch.bin')
         chk_path_best = os.path.join(opts.checkpoint, 'best_epoch.bin'.format(epoch))
 
+        if early_stopper.early_stop(losses["val_MSE_loss"].avg):             
+            break
+
         save_checkpoint(chk_path_latest, epoch, lr, optimizer, scheduler, model, min_loss)
         if losses["val_MSE_loss"].avg < min_loss: 
             min_loss = losses["val_MSE_loss"].avg
             save_checkpoint(chk_path_best, epoch, lr, optimizer, scheduler, model, min_loss)
 
+    print("[INFO] : Training done. ")
+    print("[INFO] : Performing inference on test data") 
+    model, gt, pred = validate_epoch(args, opts, model, test_loader, criterion, losses, epoch, mode="test")
+    for i in range(len(gt)):
+        train_writer.add_scalars(
+            "test_prediction", 
+            {
+                "gt": gt[i], 
+                "pred": pred[i]
+            }, 
+            i
+        )
+
+    train_writer.add_scalar("test_MSE_loss", losses["test_MSE_loss"].avg, 0)
+    train_writer.add_scalar("test_MAE_loss", losses["test_MAE_loss"].avg, 0)
+    train_writer.add_scalar("test_RMSE_loss", losses["test_RMSE_loss"].avg, 0)
+    train_writer.add_scalar("test_MAPE_loss", losses["test_MAPE_loss"].avg, 0)
 
 
 def set_random_seed(seed):

@@ -3,6 +3,8 @@ from easydict import EasyDict as edict
 import yaml
 import json 
 
+import torch 
+
 
 
 class Loader(yaml.SafeLoader):
@@ -42,3 +44,11 @@ def get_config(config_path):
     config_name, _ = os.path.splitext(config_filename)
     config.name = config_name
     return config
+
+
+def mape(y_true, y_pred): 
+    """
+    MAPE score
+    """
+    epsilon = 1e-10  # To prevent division by zero
+    return torch.mean(torch.abs((y_true - y_pred) / (y_true + epsilon))) * 100

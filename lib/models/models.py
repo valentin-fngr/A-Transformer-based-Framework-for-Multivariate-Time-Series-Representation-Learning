@@ -170,9 +170,7 @@ class TFMTSRL(nn.Module):
         """
         Forward pass of the entire model 
         """
-
         embedding = self.input_proj(x)
         x1 = self.encoder(embedding) 
         out = self.head(x1)
         return out
-    
