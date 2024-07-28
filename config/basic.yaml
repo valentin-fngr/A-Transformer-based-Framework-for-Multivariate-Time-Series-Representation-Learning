@@ -3,18 +3,20 @@
 epochs: 1000
 csv_file: "/home/valentin/Desktop/interview_memento_ai/DS-RNN/DS-RNN/nasdaq100_padding.csv"
 target: "NDX"
-batch_size: 64
+batch_size: 128
 
+# model 
 timesteps: 10
 d_dim: 64
-num_layers: 1
-num_heads: 4
+dim_ffw: 64
+num_layers: 3
+num_heads: 8
 num_exogenous: 81
-dropout: 0.2
+dropout: 0.3
 
 lr: 0.0001
-train_split: 0.8 
-val_split: 0.1 
+train_split: 0.75
+val_split: 0.15
 
 # regression
 out_dim: 1
