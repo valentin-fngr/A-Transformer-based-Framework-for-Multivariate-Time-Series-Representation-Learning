@@ -43,14 +43,19 @@ def get_data_and_preprocess(
     print("VAL LENGTH : ", val_length)
     print("TEST LENGTH : ", test_length)
 
-    X_train = X[:train_length]
-    y_his_train = y[:train_length]
-    X_val = X[train_length:train_length+val_length]
-    y_his_val = y[train_length:train_length+val_length]
+    perm = torch.randperm(train_length + val_length)
+    X_train_val = X[:train_length+val_length][perm]
+    y_train_val = X[:train_length+val_length][perm]
+    target_train_val = target[:train_length+val_length][perm]
+
+    X_train = X_train_val[:train_length]
+    y_his_train = y_train_val[:train_length]
+    X_val = X_train_val[train_length:train_length+val_length]
+    y_his_val = y_train_val[train_length:train_length+val_length]
     X_test = X[train_length+val_length:]
     y_his_test = y[train_length+val_length:]
-    target_train = target[:train_length]
-    target_val = target[train_length:train_length+val_length]
+    target_train = target_train_val[:train_length]
+    target_val = target_train_val[train_length:train_length+val_length]
     target_test = target[train_length+val_length:]
 
     # min max scaling 
