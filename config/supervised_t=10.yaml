@@ -6,15 +6,15 @@ target: "NDX"
 batch_size: 64
 
 # model 
-timesteps: 5
+timesteps: 10
 d_dim: 64
 dim_ffw: 64
-num_layers: 2
+num_layers: 8
 num_heads: 8
 num_exogenous: 81
 dropout: 0.2
 
-lr: 0.00005
+lr: 0.0001
 train_split: 0.75
 val_split: 0.15
 

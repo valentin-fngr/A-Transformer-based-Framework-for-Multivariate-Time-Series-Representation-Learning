@@ -114,9 +114,8 @@ class TransformerEncoder(nn.Module):
             nhead=num_heads,
             dim_feedforward=ff_hidden_dim,
             dropout=dropout, 
-            # batch_first=True
+            batch_first=True
         )
-        print(encoder_layer)
         self.encoder = nn.TransformerEncoder(encoder_layer, num_layers)
         
     def forward(self, src, src_mask=None):
