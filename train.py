@@ -81,7 +81,7 @@ def get_criterion(args):
 
 
 def lr_lambda(iteration):
-    return 0.9 ** (iteration // 25)
+    return 0.9 ** (iteration // 10)
 
 
 def get_optimizer(args, model): 
@@ -184,9 +184,8 @@ def train_with_config(args, opts):
             state_dict = checkpoint["model"]
             # load 
             for name, param in state_dict.items():
-                print(f"Loading {name}")
-                print(param.shape, model_state[name].shape)
                 if name in model_state and not name.startswith("head."): 
+                    print(f"Loading {name}")
                     model_state[name].copy_(param)
 
         model.load_state_dict(model_state, strict=False)
@@ -241,6 +240,10 @@ def train_with_config(args, opts):
 
     print("[INFO] : Training done. ")
     print("[INFO] : Performing inference on test data") 
+    # load best weights
+    checkpoint = torch.load(chk_path_best)
+    model.load_state_dict(checkpoint["model"])
+    
     model, gt, pred = validate_epoch(args, opts, model, test_loader, criterion, losses, epoch, mode="test")
     for i in range(len(gt)):
         train_writer.add_scalars(

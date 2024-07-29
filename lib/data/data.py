@@ -12,6 +12,7 @@ def get_data_and_preprocess(
         val_split
 ): 
     data = pd.read_csv(csv_path)
+
     data.shape[1] - 1
 
     # placeholders
@@ -32,40 +33,45 @@ def get_data_and_preprocess(
     prediction_horizon = 1
     # The prediction horizon is everything that comes after the timestamps. 
     # If you are using [t=1, ..., t=10] as input, your target will be t=11. 
-    target = data[target].shift(-prediction_horizon).fillna(method="ffill").values # (num_sample, 1)
+    target = data[target].shift(-prediction_horizon).fillna(method="ffill").values
     
     train_length = int(len(data) * train_split)
     val_length = int(len(data) * val_split)
+    test_length = int(len(data) * (1 - train_split - val_split))
 
-    X_train = X[:train_length] # (num_sample, T, n)
-    y_his_train = y[:train_length] # (num_sample, T, 1)
+    print("TRAIN LENGTH : ", train_length)
+    print("VAL LENGTH : ", val_length)
+    print("TEST LENGTH : ", test_length)
+
+    X_train = X[:train_length]
+    y_his_train = y[:train_length]
     X_val = X[train_length:train_length+val_length]
     y_his_val = y[train_length:train_length+val_length]
-    X_test = X[train_length + val_length:]
-    y_his_test = y[train_length + val_length:]
+    X_test = X[train_length+val_length:]
+    y_his_test = y[train_length+val_length:]
     target_train = target[:train_length]
     target_val = target[train_length:train_length+val_length]
-    target_test = target[train_length + val_length:]
+    target_test = target[train_length+val_length:]
 
     # min max scaling 
-    X_train_mean= X_train.mean(axis=(0, 1))[None, None, :] # (1, 1, n)
-    X_train_std = X_train.std(axis=(0, 1))[None, None, :] # (1, 1, n)
-    y_his_train_mean = y_his_train.mean(axis=(0, 1))[None, :] # (T, 1)
-    y_his_train_std = y_his_train.std(axis=(0, 1))[None, :] # (T, 1)
-    target_train_mean = target_train.mean(axis=0) # scalar
-    target_train_std = target_train.std(axis=0) # scalar
+    X_train_max = X_train.max(axis=0)
+    X_train_min = X_train.min(axis=0)
+    y_his_train_max = y_his_train.max(axis=0)
+    y_his_train_min = y_his_train.min(axis=0)
+    target_train_max = target_train.max(axis=0)
+    target_train_min = target_train.min(axis=0)
 
-    X_train = (X_train - X_train_mean) / X_train_std
-    X_val = (X_val - X_train_mean) / X_train_std
-    X_test = (X_test - X_train_mean) / X_train_std
+    X_train = (X_train - X_train_min) / (X_train_max - X_train_min)
+    X_val = (X_val - X_train_min) / (X_train_max - X_train_min)
+    X_test = (X_test - X_train_min) / (X_train_max - X_train_min)
 
-    y_his_train = (y_his_train - y_his_train_mean) / y_his_train_std
-    y_his_val = (y_his_val - y_his_train_mean) / y_his_train_std
-    y_his_test = (y_his_test - y_his_train_mean) / y_his_train_std
+    y_his_train = (y_his_train - y_his_train_min) / (y_his_train_max - y_his_train_min)
+    y_his_val = (y_his_val - y_his_train_min) / (y_his_train_max - y_his_train_min)
+    y_his_test = (y_his_test - y_his_train_min) / (y_his_train_max - y_his_train_min)
 
-    target_train = (target_train - target_train_mean) / target_train_std
-    target_val = (target_val - target_train_mean) / target_train_std
-    target_test = (target_test - target_train_mean) / target_train_std
+    target_train = (target_train - target_train_min) / (target_train_max - target_train_min)
+    target_val = (target_val - target_train_min) / (target_train_max - target_train_min)
+    target_test = (target_test - target_train_min) / (target_train_max - target_train_min)
 
     X_train_t = torch.Tensor(X_train)
     X_val_t = torch.Tensor(X_val)
@@ -98,6 +104,7 @@ def get_data_and_preprocess_unsupervised(
         val_split
 ): 
     data = pd.read_csv(csv_path)
+
     data.shape[1] - 1
 
     # placeholders
@@ -115,53 +122,43 @@ def get_data_and_preprocess_unsupervised(
     for j in range(timesteps):
        y[:, j, 0] = data[target].shift(timesteps - j - 1).fillna(method="bfill")
 
+    prediction_horizon = 1
+    # The prediction horizon is everything that comes after the timestamps. 
+    # If you are using [t=1, ..., t=10] as input, your target will be t=11. 
+    target = data[target].shift(-prediction_horizon).fillna(method="ffill").values
     
     train_length = int(len(data) * train_split)
     val_length = int(len(data) * val_split)
+    test_length = int(len(data) * (1 - train_split - val_split))
 
-    # "To select hyperparameters, for each dataset we randomly
-    # split the training set in two parts, 80%-20%, and used the 20% as
-    # a validation set for hyperparameter tuning"
+    print("TRAIN LENGTH : ", train_length)
+    print("VAL LENGTH : ", val_length)
+    print("TEST LENGTH : ", test_length)
 
-    shuffle_idx  = torch.randperm(train_length + val_length)
-    X_train_val = X[:train_length + val_length][shuffle_idx]
-    y_train_val = y[:train_length + val_length][shuffle_idx] 
-
-    X_train = X_train_val[:train_length] # (num_sample, T, n)
-    y_his_train = y_train_val[:train_length] # (num_sample, T, 1)
+    perm = torch.randperm(train_length + val_length)
+    X_train_val = X[:train_length+val_length][perm]
+    
+    X_train = X_train_val[:train_length]
     X_val = X_train_val[train_length:train_length+val_length]
-    y_his_val = y_train_val[train_length:train_length+val_length]
     X_test = X[train_length+val_length:]
-    y_his_test = y[train_length+val_length:]
 
     # min max scaling 
-    X_train_mean= X_train.mean(axis=(0, 1))[None, None, :] # (1, 1, n)
-    X_train_std = X_train.std(axis=(0, 1))[None, None, :] # (1, 1, n)
-    y_his_train_mean = y_his_train.mean(axis=(0, 1))[None, :] # (T, 1)
-    y_his_train_std = y_his_train.std(axis=(0, 1))[None, :] # (T, 1)
+    X_train_max = X_train.max(axis=0)
+    X_train_min = X_train.min(axis=0)
 
-    X_train = (X_train - X_train_mean) / X_train_std
-    X_val = (X_val - X_train_mean) / X_train_std
-    X_test = (X_test - X_train_mean) / X_train_std
+    X_train = (X_train - X_train_min) / (X_train_max - X_train_min)
+    X_val = (X_val - X_train_min) / (X_train_max - X_train_min)
+    X_test = (X_test - X_train_min) / (X_train_max - X_train_min)
 
-    y_his_train = (y_his_train - y_his_train_mean) / y_his_train_std
-    y_his_val = (y_his_val - y_his_train_mean) / y_his_train_std
-    y_his_test = (y_his_test - y_his_train_mean) / y_his_train_std
 
-    X_train_t = X_train
-    X_val_t = X_val
-    X_test_t = X_test
-    y_his_train_t = y_his_train
-    y_his_val_t = y_his_val
-    y_his_test_t = y_his_test
+    X_train_t = torch.Tensor(X_train)
+    X_val_t = torch.Tensor(X_val)
+    X_test_t = torch.Tensor(X_test)
 
     return [
         X_train_t,
         X_val_t,
-        X_test_t,
-        y_his_train_t,
-        y_his_val_t,
-        y_his_test_t
+        X_test_t
     ]
 
 
@@ -193,8 +190,6 @@ class DatasetUnsupervised(Dataset):
         self.mask_r = mask_r
         self.timesteps = timesteps
 
-        print(X.shape)
-
         if y_known: 
             self.X = np.concat([self.X, y_known], dim=2) # (num_samples, w, m + 1)
 
@@ -209,7 +204,7 @@ class DatasetUnsupervised(Dataset):
             mask_idx[:, n] = mask
 
         masked_input = x * (1 - mask_idx)
-        target = x.copy()
+        target = x.clone()
         return masked_input, target, mask_idx
 
 

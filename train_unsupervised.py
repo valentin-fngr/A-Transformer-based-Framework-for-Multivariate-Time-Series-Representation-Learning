@@ -48,7 +48,7 @@ def save_checkpoint(chk_path, epoch, lr, optimizer, scheduler, model, min_loss):
 def get_dataloader(args): 
      
     data = get_data_and_preprocess_unsupervised(args.csv_file, args.target, args.timesteps, args.train_split, args.val_split) 
-    X_train_t, X_val_t, X_test_t, y_his_train_t, y_his_val_t, y_his_test_t  = data
+    X_train_t, X_val_t, X_test_t  = data
     train_loader = DataLoader(
         DatasetUnsupervised(
             X = X_train_t, 
@@ -100,7 +100,7 @@ def get_criterion(args):
 
 
 def lr_lambda(iteration):
-    return 0.9 ** (iteration // 10000)
+    return 0.9 ** (iteration // 25)
 
 
 def get_optimizer(args, model): 

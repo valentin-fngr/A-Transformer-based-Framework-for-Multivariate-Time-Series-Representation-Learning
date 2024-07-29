@@ -53,6 +53,49 @@ class EmbeddingLayer(nn.Module):
         return out
 
 
+class TransformerBatchNormEncoderLayer(nn.modules.Module):
+    """
+    Transformer block with batch norm instead of layer norm
+    """
+
+    def __init__(self, d_model, nhead, dim_feedforward=2048, dropout=0.1, activation="relu"):
+        super(TransformerBatchNormEncoderLayer, self).__init__()
+        self.self_attn = nn.MultiheadAttention(d_model, nhead, dropout=dropout, batch_first=True)
+        # Implementation of Feedforward model
+        self.linear1 = nn.Linear(d_model, dim_feedforward)
+        self.dropout = nn.Dropout(dropout)
+        self.linear2 = nn.Linear(dim_feedforward, d_model)
+
+        self.norm1 = nn.BatchNorm1d(d_model, eps=1e-5)  # normalizes each feature across batch samples and time steps
+        self.norm2 = nn.BatchNorm1d(d_model, eps=1e-5)
+        self.dropout1 = nn.Dropout(dropout)
+        self.dropout2 = nn.Dropout(dropout)
+
+        self.activation = nn.ReLU()
+
+    def forward(self, src, src_mask, **kwargs):
+        r"""Pass the input through the encoder layer.
+
+        Args:
+            src: the sequence to the encoder layer (required).
+            src_mask: the mask for the src sequence (optional).
+            src_key_padding_mask: the mask for the src keys per batch (optional).
+
+        Shape:
+            see the docs in Transformer class.
+        """
+        src2 = self.self_attn(src, src, src, attn_mask=src_mask)[0]
+        src = src + self.dropout1(src2) 
+        src = self.norm1(src.permute(0, 2, 1))
+        src = src.permute(0, 2, 1)
+        src2 = self.linear2(self.dropout(self.activation(self.linear1(src))))
+        src = src + self.dropout2(src2)
+        src = src.permute(1, 2, 0)
+        src = self.norm2(src)
+        src = src.permute(2, 0, 1) 
+        return src
+
+
 class TransformerEncoder(nn.Module):
     """
     Transformer encoder layer According to attention is all you need. 
@@ -70,12 +113,15 @@ class TransformerEncoder(nn.Module):
             d_model=d_dim,
             nhead=num_heads,
             dim_feedforward=ff_hidden_dim,
-            dropout=dropout
+            dropout=dropout, 
+            # batch_first=True
         )
+        print(encoder_layer)
         self.encoder = nn.TransformerEncoder(encoder_layer, num_layers)
         
     def forward(self, src, src_mask=None):
         # Encoder
+        # src = src.permute(1, 0, 2)
         output = self.encoder(src, src_key_padding_mask=src_mask)
         return output
 
@@ -159,6 +205,7 @@ class TFMTSRL(nn.Module):
             ff_hidden_dim, 
             dropout
         )
+        self.dropout = nn.Dropout(dropout)
         if mode == "supervised":
             self.head = Head(w, d_dim, out_dim)
         elif mode == "unsupervised": 
@@ -172,5 +219,6 @@ class TFMTSRL(nn.Module):
         """
         embedding = self.input_proj(x)
         x1 = self.encoder(embedding) 
-        out = self.head(x1)
+        x2 = self.dropout(x1)
+        out = self.head(x2)
         return out
