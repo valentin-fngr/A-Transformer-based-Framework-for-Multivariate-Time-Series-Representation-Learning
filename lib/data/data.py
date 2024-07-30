@@ -9,7 +9,8 @@ def get_data_and_preprocess(
         target, 
         timesteps, 
         train_split, 
-        val_split
+        val_split, 
+        split_method="sequential"
 ): 
     data = pd.read_csv(csv_path)
 
@@ -43,21 +44,35 @@ def get_data_and_preprocess(
     print("VAL LENGTH : ", val_length)
     print("TEST LENGTH : ", test_length)
 
-    perm = torch.randperm(train_length + val_length)
-    X_train_val = X[:train_length+val_length][perm]
-    y_train_val = X[:train_length+val_length][perm]
-    target_train_val = target[:train_length+val_length][perm]
+    if split_method == "sequential": 
+        X_train = X[:train_length]
+        y_his_train = y[:train_length]
+        X_val = X[train_length:train_length+val_length]
+        y_his_val = y[train_length:train_length+val_length]
+        X_test = X[train_length+val_length:]
+        y_his_test = y[train_length+val_length:]
+        target_train = target[:train_length]
+        target_val = target[train_length:train_length+val_length]
+        target_test = target[train_length+val_length:]
 
-    X_train = X_train_val[:train_length]
-    y_his_train = y_train_val[:train_length]
-    X_val = X_train_val[train_length:train_length+val_length]
-    y_his_val = y_train_val[train_length:train_length+val_length]
-    X_test = X[train_length+val_length:]
-    y_his_test = y[train_length+val_length:]
-    target_train = target_train_val[:train_length]
-    target_val = target_train_val[train_length:train_length+val_length]
-    target_test = target[train_length+val_length:]
 
+    elif split_method == "random": 
+        perm = torch.randperm(train_length + val_length)
+        X_train_val = X[:train_length+val_length][perm]
+        y_train_val = X[:train_length+val_length][perm]
+        target_train_val = target[:train_length+val_length][perm]
+
+        X_train = X_train_val[:train_length]
+        y_his_train = y_train_val[:train_length]
+        X_val = X_train_val[train_length:train_length+val_length]
+        y_his_val = y_train_val[train_length:train_length+val_length]
+        X_test = X[train_length+val_length:]
+        y_his_test = y[train_length+val_length:]
+        target_train = target_train_val[:train_length]
+        target_val = target_train_val[train_length:train_length+val_length]
+        target_test = target[train_length+val_length:]
+    else: 
+        raise ValueError(f"split_method should be 'random' or 'sequential'. Received {split_method}")
     # min max scaling 
     X_train_max = X_train.max(axis=0)
     X_train_min = X_train.min(axis=0)
@@ -88,7 +103,7 @@ def get_data_and_preprocess(
     target_val_t = torch.Tensor(target_val)
     target_test_t = torch.Tensor(target_test)
 
-    return [
+    data =  [
         X_train_t,
         X_val_t,
         X_test_t,
@@ -99,6 +114,8 @@ def get_data_and_preprocess(
         target_val_t,
         target_test_t
     ]
+    scale = (target_train_max, target_train_min)
+    return data, scale
 
 
 def get_data_and_preprocess_unsupervised(
