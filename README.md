@@ -1,13 +1,14 @@
-# README.md
+# A Transformer-Based Framework for Multivariate Time Series Representation Learning
 
 ## Overview
 
-This repository contains an implementation of the **DA-RNN (Dual Attention Recurrent Neural Network)**. DA-RNN is a sophisticated model designed for time series forecasting. It leverages both temporal and contextual attention mechanisms to enhance predictive accuracy.
+This repository contains an implementation of a **Transformer-based Framework** designed for **Multivariate Time Series Representation Learning**. This framework leverages the power of Transformer models to effectively capture complex patterns and dependencies in multivariate time series data.
 
 ## Key Features
 
-- **Temporal Attention Mechanism**: Focuses on the significance of different time steps in the sequence.
-- **Contextual Attention Mechanism**: Captures long-term dependencies and contextual relationships.
+- **Transformer Architecture**: Utilizes self-attention mechanisms to capture long-range dependencies and complex relationships within the data.
+- **Multivariate Time Series Processing**: Designed to handle and learn from multiple time series variables simultaneously.
+- **Enhanced Representation Learning**: Improves the quality of learned representations, leading to better performance on downstream tasks such as forecasting, classification, and anomaly detection.
 
 ## Prerequisites
 
