@@ -1,23 +1,24 @@
 # training 
 
-epochs: 1000
+epochs: 250
 csv_file: "/home/valentin/Desktop/personal_work/memento_interview/TST/A-Transformer-based-Framework-for-Multivariate-Time-Series-Representation-Learning/nasdaq100_padding.csv"
 target: "NDX"
 batch_size: 128
 
 # model 
-timesteps: 25
-d_dim: 128
-dim_ffw: 256
-num_layers: 3
+timesteps: 10
+d_dim: 256
+dim_ffw: 512
+num_layers: 8
 num_heads: 8
 num_exogenous: 81
-dropout: 0.2
+dropout: 0.34
 
-
-lr: 0.0001
-train_split: 0.75
-val_split: 0.15
+lr: 0.00005
+train_split: 0.87
+val_split: 0.06
 
 # regression
 out_dim: 1
+
+split: "sequential" # "random" 
