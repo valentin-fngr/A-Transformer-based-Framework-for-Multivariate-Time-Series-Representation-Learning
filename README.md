@@ -17,7 +17,7 @@ This repository contains an implementation of the **DA-RNN (Dual Attention Recur
 
 1. Clone the repository:
    ```bash
-   git clone https://github.com/valentin-fngr/Dual_Stage_attention_RNN.git
+   git clone https://github.com/valentin-fngr/A-Transformer-based-Framework-for-Multivariate-Time-Series-Representation-Learning.git
    cd A-Transformer-based-Framework-for-Multivariate-Time-Series-Representation-Learning
 
 2. Install the required packages: 
